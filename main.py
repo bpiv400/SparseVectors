@@ -4,6 +4,7 @@ import subprocess
 import re
 import random
 import numpy as np
+from math import log, sqrt
 
 
 def read_in_shakespeare():
@@ -64,7 +65,7 @@ def create_term_document_matrix(line_tuples, document_names, vocab):
   '''
   vocab_to_id = dict(zip(vocab, range(0, len(vocab))))
   docname_to_id = dict(zip(document_names, range(0, len(document_names))))
-  print (docname_to_id)
+
   # YOUR CODE HERE
   matrix = np.zeros((len(vocab), len(document_names)))
 
@@ -93,24 +94,20 @@ def create_term_context_matrix(line_tuples, vocab, context_window_size=1):
   '''
   vocab_to_id = dict(zip(vocab, range(0, len(vocab))))
 
-  # YOUR CODE HERE
-
   matrix = np.zeros((len(vocab), len(vocab)))
   for play, line in line_tuples:
     for i in range(0, len(line)):
-      min = i - context_window_size
-      if min < 0:
-        min = 0
-      max = i + context_window_size
-      if max > len(line)
-        max = len(line)
+      min_context = i - context_window_size
+      if min_context < 0:
+        min_context = 0
+      max_context = i + context_window_size
+      if max_context >= len(line):
+        max_context = len(line) - 1
 
-      for i in range(min, max):
-        if line[i] == 
-
-
-
-  return None
+      for j in range(min_context, max_context + 1):
+        if j != i:
+          matrix[vocab_to_id[line[i]], vocab_to_id[line[j]]] += 1  
+  return matrix
 
 def create_PPMI_matrix(term_context_matrix):
   '''Given a term context matrix, output a PPMI matrix.
@@ -126,10 +123,29 @@ def create_PPMI_matrix(term_context_matrix):
   Returns: A nxn numpy matrix, where A_ij is equal to the
      point-wise mutual information between the ith word
      and the jth word in the term_context_matrix.
-  '''       
+  '''
+  def divide_array(matrix_array, marginal_array):
+    return matrix_array - marginal_array
+
+  def make_positive(val):
+    return max(0, val)
+
+  term_context_matrix = term_context_matrix + pow(10, -6)
+  context_sum = np.sum(term_context_matrix, axis = 0)
+  word_sum = np.sum(term_context_matrix, axis = 1)
   
-  # YOUR CODE HERE
-  return None
+  log_vectorize = np.vectorize(log) 
+  context_sum = np.log2(context_sum)
+  word_sum = np.log2(word_sum)
+
+  term_context_matrix = np.log2(term_context_matrix)
+
+  vmake_positive = np.vectorize(make_positive)
+
+  term_context_matrix = np.apply_along_axis(divide_array, 0, term_context_matrix, context_sum) 
+  term_context_matrix = np.apply_along_axis(divide_array, 1, term_context_matrix, word_sum)
+  term_context_matrix = np.clip(term_context_matrix, 0, None)
+  return term_context_matrix
 
 def create_tf_idf_matrix(term_document_matrix):
   '''Given the term document matrix, output a tf-idf weighted version.
@@ -146,9 +162,15 @@ def create_tf_idf_matrix(term_document_matrix):
     A numpy array with the same dimension as term_document_matrix, where
     A_ij is weighted by the inverse document frequency of document h.
   '''
-
-  # YOUR CODE HERE
-  return None
+  def count_occurence(vector, total_docs):
+    doc_freq = log(np.count_nonzero(vector), 2)
+    out = vector * (doc_freq - total_docs) 
+    return out
+  
+  total_docs = term_document_matrix.shape[1]
+  total_docs = log(total_docs, 2)
+  term_document_matrix = np.apply_along_axis(count_occurence, 1, term_document_matrix, total_docs)
+  return term_document_matrix
 
 def compute_cosine_similarity(vector1, vector2):
   '''Computes the cosine similarity of the two input vectors.
@@ -161,8 +183,13 @@ def compute_cosine_similarity(vector1, vector2):
     A scalar similarity value.
   '''
   
-  # YOUR CODE HERE
-  return -1
+  products = vector1 * vector2
+  vector1 = np.square(vector1)
+  vector2 = np.square(vector2)
+  mag1 = sqrt(np.sum(vector1))
+  mag2 = sqrt(np.sum(vector2))
+
+  return sum(products/(mag1 * mag2))
 
 def compute_jaccard_similarity(vector1, vector2):
   '''Computes the cosine similarity of the two input vectors.
@@ -174,9 +201,9 @@ def compute_jaccard_similarity(vector1, vector2):
   Returns:
     A scalar similarity value.
   '''
-  
-  # YOUR CODE HERE
-  return -1
+  minimums = np.minimum(vector1, vector2)
+  maximums = np.maximum(vector1, vector2) 
+  return np.sum(minimums)/np.sum(maximums)
 
 def compute_dice_similarity(vector1, vector2):
   '''Computes the cosine similarity of the two input vectors.
@@ -188,9 +215,9 @@ def compute_dice_similarity(vector1, vector2):
   Returns:
     A scalar similarity value.
   '''
-
-  # YOUR CODE HERE
-  return -1
+  minimums = np.minimum(vector1, vector2)
+  denom = vector1 + vector2
+  return np.sum(minimums) / np.sum(denom) 
 
 def rank_plays(target_play_index, term_document_matrix, similarity_fn):
   ''' Ranks the similarity of all of the plays to the target play.
@@ -209,8 +236,13 @@ def rank_plays(target_play_index, term_document_matrix, similarity_fn):
     ordered by decreasing similarity to the play indexed by target_play_index
   '''
   
-  # YOUR CODE HERE
-  return []
+  target_vector = term_document_matrix[target_play_index, :]
+  similarities = np.apply_along_axis(similarity_fn, 1, term_document_matrix, target_vector)
+  #excludes the most similar vector, which should be the target vector 
+  sorted_similarities = np.argsort(similarities)[::-1]
+  sorted_similarities = sorted_similarities.tolist()
+  sorted_similarities.remove(target_play_index)
+  return sorted_similarities
 
 def rank_words(target_word_index, matrix, similarity_fn):
   ''' Ranks the similarity of all of the words to the target word.
@@ -229,8 +261,13 @@ def rank_words(target_word_index, matrix, similarity_fn):
     target word indexed by word_index
   '''
 
-  # YOUR CODE HERE
-  return []
+  target_vector = matrix[target_word_index, :]
+  similarities = np.apply_along_axis(similarity_fn, 1, matrix, target_vector)
+  #excludes the most similar vector, which should be the target vector 
+  sorted_similarities = np.argsort(similarities)[::-1]
+  sorted_similarities = sorted_similarities.tolist()
+  sorted_similarities.remove(target_word_index)
+  return sorted_similarities
 
 
 if __name__ == '__main__':
@@ -239,14 +276,14 @@ if __name__ == '__main__':
   print('Computing term document matrix...')
   td_matrix = create_term_document_matrix(tuples, document_names, vocab)
 
-  # print('Computing tf-idf matrix...')
-  # tf_idf_matrix = create_tf_idf_matrix(td_matrix)
+  print('Computing tf-idf matrix...')
+  tf_idf_matrix = create_tf_idf_matrix(td_matrix)
 
-  # print('Computing term context matrix...')
-  # tc_matrix = create_term_context_matrix(tuples, vocab, context_window_size=2)
+  print('Computing term context matrix...')
+  tc_matrix = create_term_context_matrix(tuples, vocab, context_window_size=2)
 
-  # print('Computing PPMI matrix...')
-  # PPMI_matrix = create_PPMI_matrix(tc_matrix)
+  print('Computing PPMI matrix...')
+  PPMI_matrix = create_PPMI_matrix(tc_matrix)
 
   # random_idx = random.randint(0, len(document_names)-1)
   # similarity_fns = [compute_cosine_similarity, compute_jaccard_similarity, compute_dice_similarity]
