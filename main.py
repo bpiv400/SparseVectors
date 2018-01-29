@@ -4,7 +4,7 @@ import subprocess
 import re
 import random
 import numpy as np
-from math import log, sqrt
+from math import log, sqrt, exp
 
 
 def read_in_shakespeare():
@@ -188,7 +188,8 @@ def compute_cosine_similarity(vector1, vector2):
   vector2 = np.square(vector2)
   mag1 = sqrt(np.sum(vector1))
   mag2 = sqrt(np.sum(vector2))
-  mags = exp(log(mag1) + log(mag2))
+  mags = mag1 * mag2
+  mags += pow(10, -5)
   return np.sum(products)/mags
 
 def compute_jaccard_similarity(vector1, vector2):
@@ -241,7 +242,6 @@ def rank_plays(target_play_index, term_document_matrix, similarity_fn):
   #excludes the most similar vector, which should be the target vector 
   sorted_similarities = np.argsort(similarities)[::-1]
   sorted_similarities = sorted_similarities.tolist()
-  sorted_similarities.remove(target_play_index)
   return sorted_similarities
 
 def rank_words(target_word_index, matrix, similarity_fn):
@@ -266,7 +266,6 @@ def rank_words(target_word_index, matrix, similarity_fn):
   #excludes the most similar vector, which should be the target vector 
   sorted_similarities = np.argsort(similarities)[::-1]
   sorted_similarities = sorted_similarities.tolist()
-  sorted_similarities.remove(target_word_index)
   return sorted_similarities
 
 
