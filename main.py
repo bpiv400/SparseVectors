@@ -140,6 +140,7 @@ def create_term_context_matrix(line_tuples, vocab, context_window_size=1):
 
       for j in range(min_context, max_context + 1):
         if j != i:
+          
           matrix[vocab_to_id[line[i]], vocab_to_id[line[j]]] += 1  
   matrix = matrix + pow(10, -3)
   return matrix
@@ -351,45 +352,45 @@ if __name__ == '__main__':
   print('Computing term document matrix...')
   td_matrix = create_term_document_matrix(tuples, document_names, vocab)
 
-  print('Computing tf-idf matrix...')
-  tf_idf_matrix = create_tf_idf_matrix(td_matrix)
+  # print('Computing tf-idf matrix...')
+  # tf_idf_matrix = create_tf_idf_matrix(td_matrix)
 
   print('Computing term context matrix...')
   tc_matrix = create_term_context_matrix_inclusive(tuples, vocab, context_window_size=2)
 
-  print('Computing PPMI matrix...')
-  PPMI_matrix = create_PPMI_matrix(tc_matrix)
+  # print('Computing PPMI matrix...')
+  # PPMI_matrix = create_PPMI_matrix(tc_matrix)
 
-  random_idx = random.randint(0, len(document_names)-1)
-  similarity_fns = [compute_cosine_similarity, compute_jaccard_similarity, compute_dice_similarity]
-  for sim_fn in similarity_fns:
-    print('\nThe 10 most similar plays to "%s" using %s are:' % (document_names[random_idx], sim_fn.__qualname__))
-    ranks = rank_plays(random_idx, td_matrix, sim_fn)
-    for idx in range(0, 10):
-      doc_id = ranks[idx]
-      print('%d: %s' % (idx+1, document_names[doc_id]))
+  # random_idx = random.randint(0, len(document_names)-1)
+  # similarity_fns = [compute_cosine_similarity, compute_jaccard_similarity, compute_dice_similarity]
+  # for sim_fn in similarity_fns:
+  #   print('\nThe 10 most similar plays to "%s" using %s are:' % (document_names[random_idx], sim_fn.__qualname__))
+  #   ranks = rank_plays(random_idx, td_matrix, sim_fn)
+  #   for idx in range(0, 10):
+  #     doc_id = ranks[idx]
+  #     print('%d: %s' % (idx+1, document_names[doc_id]))
 
-  word = 'juliet'
-  vocab_to_index = dict(zip(vocab, range(0, len(vocab))))
-  for sim_fn in similarity_fns:
-    print('\nThe 10 most similar words to "%s" using %s on term-context frequency matrix are:' % (word, sim_fn.__qualname__))
-    ranks = rank_words(vocab_to_index[word], PPMI_matrix, sim_fn)
-    for idx in range(0, 10):
-      word_id = ranks[idx]
-      print('%d: %s' % (idx+1, vocab[word_id]))
+  # word = 'juliet'
+  # vocab_to_index = dict(zip(vocab, range(0, len(vocab))))
+  # for sim_fn in similarity_fns:
+  #   print('\nThe 10 most similar words to "%s" using %s on term-context frequency matrix are:' % (word, sim_fn.__qualname__))
+  #   ranks = rank_words(vocab_to_index[word], PPMI_matrix, sim_fn)
+  #   for idx in range(0, 10):
+  #     word_id = ranks[idx]
+      # print('%d: %s' % (idx+1, vocab[word_id]))
 
 # used to calculate the top ten highest/lowest cosine similarity values for write up
-# cos_vals = []
-# for i in range(len(document_names)):
-#   for j in range(i + 1, len(document_names)):
+cos_vals = []
+for i in range(len(document_names)):
+  for j in range(i + 1, len(document_names)):
     
-#     tup = (document_names[i], document_names[j], compute_cosine_similarity(td_matrix[:, i], td_matrix[:, j]))
-#     cos_vals.append(tup)
+    tup = (document_names[i], document_names[j], compute_cosine_similarity(td_matrix[:, i], td_matrix[:, j]))
+    cos_vals.append(tup)
 
-# cos_vals = sorted(cos_vals, key = lambda tup: tup[2], reverse = True)
-# print ("Ten Closest Plays in Vector Space")
-# for i in range(0, 10):
-#   print (cos_vals[i][0] + ", " + cos_vals[i][1] + ": %1.4f"   %(cos_vals[i][2]))
+cos_vals = sorted(cos_vals, key = lambda tup: tup[2], reverse = True)
+print ("Ten Closest Plays in Vector Space")
+for i in range(0, 10):
+  print (cos_vals[i][0] + ", " + cos_vals[i][1] + ": %1.4f"   %(cos_vals[i][2]))
 
 # print ()
 # print ("Ten Most Distant Plays in Vector Space")
@@ -406,9 +407,23 @@ if __name__ == '__main__':
 #      "pulcher: " + str(tc_matrix[vocab_to_index["pulcher"], i]))
 #print("max: " + str(np.max(tc_matrix[vocab_to_index["disappears"], :])))
 #print("max: " + str(np.max(tc_matrix[vocab_to_index["pulcher"], :])))
+print ()
+print ("Ten Most Distant Plays in Vector Space")
+for i in range(len(cos_vals)-11, len(cos_vals)-1):
+  print (cos_vals[i][0] + ", " + cos_vals[i][1] + ": %1.4f"   %(cos_vals[i][2]))
+print()
 
 word_context_sim_list = []
 index_to_vocab = dict(zip(range(0, len(vocab)), vocab))
+# used to calculate top ten highest/lowest similar words by TCM
+print (len(vocab))
+vocab_short = vocab[:5000]
+print (len(vocab_short))
+cos_vals = []
+for i in range(len(vocab_short)):
+  for j in range(i + 1, len(vocab_short)):
+    tup = (vocab_short[i], vocab_short[j], compute_cosine_similarity(tc_matrix[i, :], tc_matrix[j, :]))
+    cos_vals.append(tup)
 
 print("calculating similarity pairs")
 for index, vocab_word in index_to_vocab.items():
@@ -421,9 +436,29 @@ for i in range(10):
   print('\n The 10 most similar words in PPMI vector space are:') 
   print('\n' + str(i) + ". " + word_context_sim_list[i][0] + ", " + word_context_sim_list[i][1] +
    " : " + str(word_context_sim_list[i][2]))
+cos_vals = sorted(cos_vals, key = lambda tup: tup[2], reverse = True)
+print ("Ten Closest Words in Vector Space")
+for i in range(0, 500):
+  print (cos_vals[i][0] + ", " + cos_vals[i][1] + ": %1.4f"   %(cos_vals[i][2]))
 
 # for sim_fn in similarity_fns:
 #   print('\nThe 10 most similar words to "%s" using %s on PPMI matrix are:' % (word, sim_fn.__qualname__))
+print ()
+print ("Ten Most Distant Words in Vector Space")
+for i in range(len(cos_vals)-11, len(cos_vals)-1):
+  print (cos_vals[i][0] + ", " + cos_vals[i][1] + ": %1.4f"   %(cos_vals[i][2]))
+print()
+
+# vocab_to_id = dict(zip(vocab, range(0, len(vocab))))
+# print (td_matrix[vocab_to_id["banquo"]])
+# print (td_matrix[vocab_to_id["thane"]])
+
+
+
+  # word = 'juliet'
+  # vocab_to_index = dict(zip(vocab, range(0, len(vocab))))
+  # for sim_fn in similarity_fns:
+  #   print('\nThe 10 most similar words to "%s" using %s on PPMI matrix are:' % (word, sim_fn.__qualname__))
   #   ranks = rank_words(vocab_to_index[word], PPMI_matrix, sim_fn)
   #   for idx in range(0, 10):
   #     word_id = ranks[idx]
