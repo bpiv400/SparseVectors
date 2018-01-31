@@ -159,7 +159,7 @@ def create_tf_idf_matrix(term_document_matrix):
 
   See section 15.2.1 in the textbook.
   
-  Hint: Use numpy matrix and vector operations to speed up implementation.
+  Hint: Use numpy m atrix and vector operations to speed up implementation.
 
   Input:
     term_document_matrix: Numpy array where each column represents a document 
@@ -307,7 +307,7 @@ if __name__ == '__main__':
   vocab_to_index = dict(zip(vocab, range(0, len(vocab))))
   for sim_fn in similarity_fns:
     print('\nThe 10 most similar words to "%s" using %s on term-context frequency matrix are:' % (word, sim_fn.__qualname__))
-    ranks = rank_words(vocab_to_index[word], tc_matrix, sim_fn)
+    ranks = rank_words(vocab_to_index[word], PPMI_matrix, sim_fn)
     for idx in range(0, 10):
       word_id = ranks[idx]
       print('%d: %s' % (idx+1, vocab[word_id]))
