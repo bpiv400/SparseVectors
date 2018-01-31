@@ -74,6 +74,40 @@ def create_term_document_matrix(line_tuples, document_names, vocab):
       matrix[(vocab_to_id[word], docname_to_id[play])] += 1
 
   return matrix
+def create_term_context_matrix_inclusive(line_tuples, vocab, context_window_size=1):
+  '''Returns a numpy array containing the term context matrix for the input lines.
+
+  Inputs:
+    line_tuples: A list of tuples, containing the name of the document and 
+    a tokenized line from that document.
+    vocab: A list of the tokens in the vocabulary
+
+  # NOTE: THIS DOCSTRING WAS UPDATED ON JAN 24, 12:39 PM.
+
+  Let n = len(vocab).
+
+  Returns:
+    tc_matrix: A nxn numpy array where A_ij contains the frequency with which
+        word j was found within context_window_size to the left or right of
+        word i in any sentence in the tuples.
+  '''
+  vocab_to_id = dict(zip(vocab, range(0, len(vocab))))
+
+  matrix = np.zeros((len(vocab), len(vocab)))
+  for play, line in line_tuples:
+    for i in range(0, len(line)):
+      min_context = i - context_window_size
+      if min_context < 0:
+        min_context = 0
+      max_context = i + context_window_size
+      if max_context >= len(line):
+        max_context = len(line) - 1
+
+      for j in range(min_context, max_context + 1):
+        matrix[vocab_to_id[line[i]], vocab_to_id[line[j]]] += 1  
+  matrix = matrix + pow(10, -3)
+  return matrix
+
 
 def create_term_context_matrix(line_tuples, vocab, context_window_size=1):
   '''Returns a numpy array containing the term context matrix for the input lines.
@@ -278,6 +312,38 @@ def rank_words(target_word_index, matrix, similarity_fn):
   sorted_similarities = sorted_similarities.tolist()
   return sorted_similarities
 
+def rank_words_sup(target_word_index, matrix, similarity_fn):
+  ''' Ranks the similarity of all of the words to the target word.
+
+  # NOTE: THIS DOCSTRING WAS UPDATED ON JAN 24, 12:51 PM.
+
+  Inputs:
+    target_word_index: The index of the word we want to compare all others against.
+    matrix: Numpy matrix where the ith row represents a vector embedding of the ith word.
+    similarity_fn: Function that should be used to compared vectors for two word
+      ebeddings. Either compute_dice_similarity, compute_jaccard_similarity, or
+      compute_cosine_similarity.
+
+  Returns:
+    A length-n list of integer word indices, ordered by decreasing similarity to the 
+    target word indexed by word_index
+  '''
+
+  target_vector = matrix[target_word_index, :]
+  similarities = np.apply_along_axis(similarity_fn, 1, matrix, target_vector)
+
+  sorted_indices = np.argsort(similarities)[::-1]
+  sorted_similarities = np.sort(similarities)[::-1]
+
+  #excludes the most similar vector, which should be the target vector 
+
+  sorted_similarities = sorted_similarities.tolist()
+  sorted_indices = sorted_indices.tolist()
+
+  del sorted_similarities[0]
+  del sorted_indices[0]
+
+  return sorted_similarities, sorted_indices
 
 if __name__ == '__main__':
   tuples, document_names, vocab = read_in_shakespeare()
@@ -289,7 +355,7 @@ if __name__ == '__main__':
   tf_idf_matrix = create_tf_idf_matrix(td_matrix)
 
   print('Computing term context matrix...')
-  tc_matrix = create_term_context_matrix(tuples, vocab, context_window_size=2)
+  tc_matrix = create_term_context_matrix_inclusive(tuples, vocab, context_window_size=2)
 
   print('Computing PPMI matrix...')
   PPMI_matrix = create_PPMI_matrix(tc_matrix)
@@ -329,16 +395,35 @@ if __name__ == '__main__':
 # print ("Ten Most Distant Plays in Vector Space")
 # for i in range(len(cos_vals)-11, len(cos_vals)-1):
 #   print (cos_vals[i][0] + ", " + cos_vals[i][1] + ": %1.4f"   %(cos_vals[i][2]))
-# print()
+## print()
+#print(str(PPMI_matrix[vocab_to_index["disappears"], :]))
+#print(str(PPMI_matrix[vocab_to_index["pulcher"], :]))
+#for i in range(len(vocab_to_index)):
+#  disappears = tc_matrix[vocab_to_index["disappears"], i]
+#  pulcher = tc_matrix[vocab_to_index["pulcher"], i]
+#  if pulcher >= 1 or disappears >= 1:
+#    print("\ndisappears: " + str(tc_matrix[vocab_to_index["disappears"], i]) +
+#      "pulcher: " + str(tc_matrix[vocab_to_index["pulcher"], i]))
+#print("max: " + str(np.max(tc_matrix[vocab_to_index["disappears"], :])))
+#print("max: " + str(np.max(tc_matrix[vocab_to_index["pulcher"], :])))
 
-print (len(vocab))
+word_context_sim_list = []
+index_to_vocab = dict(zip(range(0, len(vocab)), vocab))
 
+print("calculating similarity pairs")
+for index, vocab_word in index_to_vocab.items():
+  if index < 1000:
+    sorted_sims, sorted_indices = rank_words_sup(index, PPMI_matrix, compute_cosine_similarity)
+    for i in range(10):
+      word_context_sim_list.append((vocab_word, index_to_vocab[sorted_indices[i]], sorted_sims[i]))
+word_context_sim_list.sort(key=lambda word_pair: word_pair[2], reverse=True)
+for i in range(10):
+  print('\n The 10 most similar words in PPMI vector space are:') 
+  print('\n' + str(i) + ". " + word_context_sim_list[i][0] + ", " + word_context_sim_list[i][1] +
+   " : " + str(word_context_sim_list[i][2]))
 
-
-  # word = 'juliet'
-  # vocab_to_index = dict(zip(vocab, range(0, len(vocab))))
-  # for sim_fn in similarity_fns:
-  #   print('\nThe 10 most similar words to "%s" using %s on PPMI matrix are:' % (word, sim_fn.__qualname__))
+# for sim_fn in similarity_fns:
+#   print('\nThe 10 most similar words to "%s" using %s on PPMI matrix are:' % (word, sim_fn.__qualname__))
   #   ranks = rank_words(vocab_to_index[word], PPMI_matrix, sim_fn)
   #   for idx in range(0, 10):
   #     word_id = ranks[idx]
